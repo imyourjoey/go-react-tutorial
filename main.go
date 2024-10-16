@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,7 +16,7 @@ import (
 )
 
 type Todo struct {
-	ID        primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Completed bool               `json:"completed"`
 	Body      string             `json:"body"`
 }
@@ -25,9 +26,13 @@ var collection *mongo.Collection
 func main() {
 	fmt.Println("hello world")
 
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file", err)
+	if os.Getenv("ENV") != "production" {
+		//Load env file if not in production
+		err := godotenv.Load(".env")
+		if err != nil {
+			log.Fatal("Error loading .env file", err)
+
+		}
 
 	}
 
@@ -54,6 +59,14 @@ func main() {
 
 	app := fiber.New()
 
+	// === if want different domain to consume, setup cors === //
+	if os.Getenv("ENV") != "production" {
+		app.Use(cors.New(cors.Config{
+			AllowOrigins: "http://localhost:5173",
+			AllowHeaders: "origin,Content-Type,Accept",
+		}))
+	}
+
 	app.Get("/api/todos", getTodos)
 	app.Post("/api/todos", createTodo)
 	app.Patch("/api/todos/:id", updateTodo)
@@ -63,6 +76,10 @@ func main() {
 
 	if port == "" {
 		port = "5000"
+	}
+
+	if os.Getenv("ENV") == "production" {
+		app.Static("/", "./client/dist")
 	}
 
 	log.Fatal(app.Listen("0.0.0.0:" + port))
